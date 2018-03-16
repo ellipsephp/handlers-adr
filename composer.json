@@ -1,7 +1,7 @@
 {
     "name": "ellipse/handlers-adr",
     "type": "library",
-    "description": "Psr-15 request handler implementing ADR pattern",
+    "description": "Psr-15 request handler implementing the ADR pattern",
     "keywords": [
         "Psr-15",
         "Psr-11",
