@@ -14,5 +14,5 @@ interface ResponderInterface
      * @param \Ellipse\Handlers\ADR\PayloadInterface    $payload
      * @return \Psr\Http\Message\ResponseInterface
      */
-    public function createResponse(ServerRequestInterface $request, PayloadInterface $payload): ResponseInterface;
+    public function response(ServerRequestInterface $request, PayloadInterface $payload): ResponseInterface;
 }

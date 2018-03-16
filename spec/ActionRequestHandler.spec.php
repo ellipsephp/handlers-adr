@@ -1,17 +1,17 @@
 <?php
 
 use function Eloquent\Phony\Kahlan\mock;
-use function Eloquent\Phony\Kahlan\stub;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 use Ellipse\Handlers\ActionRequestHandler;
+use Ellipse\Handlers\ADR\PayloadInterface;
 use Ellipse\Handlers\ADR\DomainInterface;
 use Ellipse\Handlers\ADR\ResponderInterface;
-use Ellipse\Handlers\ADR\PayloadInterface;
-use Ellipse\Handlers\Exceptions\InputTypeException;
+use Ellipse\Handlers\ADR\RequestParserInterface;
+use Ellipse\Handlers\ADR\DefaultRequestParser;
 
 describe('ActionRequestHandler', function () {
 
@@ -19,15 +19,14 @@ describe('ActionRequestHandler', function () {
 
         $this->domain = mock(DomainInterface::class);
         $this->responder = mock(ResponderInterface::class);
-        $this->parser = stub();
-
-        $this->handler = new ActionRequestHandler($this->domain->get(), $this->responder->get(), $this->parser);
 
     });
 
     it('should implement RequestHandlerInterface', function () {
 
-        expect($this->handler)->toBeAnInstanceOf(RequestHandlerInterface::class);
+        $test = new ActionRequestHandler($this->domain->get(), $this->responder->get());
+
+        expect($test)->toBeAnInstanceOf(RequestHandlerInterface::class);
 
     });
 
@@ -38,21 +37,28 @@ describe('ActionRequestHandler', function () {
             $this->request = mock(ServerRequestInterface::class)->get();
             $this->response = mock(ResponseInterface::class)->get();
 
+            $this->payload = mock(PayloadInterface::class)->get();
+
         });
 
-        context('when the value returned by the parser is an array', function () {
+        context('when there is no request parser', function () {
 
-            it('should return the response produced by the responder with the payload produced by the domain', function () {
+            it('should use the input array produced by a default request parser', function () {
 
                 $input = ['key' => 'value'];
-                $payload = mock(PayloadInterface::class)->get();
+                $parser = mock(DefaultRequestParser::class);
 
-                $this->parser->with($this->request)->returns($input);
+                allow(DefaultRequestParser::class)->toBe($parser->get());
 
-                $this->domain->payload->with($input)->returns($payload);
-                $this->responder->createResponse->with($this->request, $payload)->returns($this->response);
+                $handler = new ActionRequestHandler($this->domain->get(), $this->responder->get());
 
-                $test = $this->handler->handle($this->request);
+                $parser->input->with($this->request)->returns($input);
+
+                $this->domain->payload->with($input)->returns($this->payload);
+
+                $this->responder->response->with($this->request, $this->payload)->returns($this->response);
+
+                $test = $handler->handle($this->request);
 
                 expect($test)->toBe($this->response);
 
@@ -60,21 +66,24 @@ describe('ActionRequestHandler', function () {
 
         });
 
-        context('when the value returned by the parser is not an array', function () {
+        context('when there is a request parser', function () {
 
-            it('should throw a InputTypeException', function () {
+            it('should use the input array produced by the request parser', function () {
 
-                $this->parser->with($this->request)->returns('input');
+                $input = ['key' => 'value'];
+                $parser = mock(RequestParserInterface::class);
 
-                $test = function () {
+                $handler = new ActionRequestHandler($this->domain->get(), $this->responder->get(), $parser->get());
 
-                    $this->handler->handle($this->request);
+                $parser->input->with($this->request)->returns($input);
 
-                };
+                $this->domain->payload->with($input)->returns($this->payload);
 
-                $exception = new InputTypeException('input');
+                $this->responder->response->with($this->request, $this->payload)->returns($this->response);
 
-                expect($test)->toThrow($exception);
+                $test = $handler->handle($this->request);
+
+                expect($test)->toBe($this->response);
 
             });
 

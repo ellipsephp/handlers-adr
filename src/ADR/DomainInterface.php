@@ -5,7 +5,7 @@ namespace Ellipse\Handlers\ADR;
 interface DomainInterface
 {
     /**
-     * Return a payload from the given input.
+     * Return a payload from the given input array.
      *
      * @param array $input
      * @return \Ellipse\Handlers\ADR\PayloadInterface

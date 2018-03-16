@@ -8,7 +8,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 use Ellipse\Handlers\ADR\DomainInterface;
 use Ellipse\Handlers\ADR\ResponderInterface;
-use Ellipse\Handlers\Exceptions\InputTypeException;
+use Ellipse\Handlers\ADR\RequestParserInterface;
+use Ellipse\Handlers\ADR\DefaultRequestParser;
 
 class ActionRequestHandler implements RequestHandlerInterface
 {
@@ -27,24 +28,25 @@ class ActionRequestHandler implements RequestHandlerInterface
     private $responder;
 
     /**
-     * The input parser.
+     * The request parser.
      *
-     * @var callable
+     * @var \Ellipse\Handlers\ADR\RequestParserInterface
      */
     private $parser;
 
     /**
-     * Set up a container request handler with the given container and id.
+     * Set up an ADR request handler with the given domain, responder and an
+     * optional request parser.
      *
-     * @param \Ellipse\Handlers\ADR\DomainInterface     $domain
-     * @param \Ellipse\Handlers\ADR\ResponderInterface  $responder
-     * @param callable                                  $parser
+     * @param \Ellipse\Handlers\ADR\DomainInterface         $domain
+     * @param \Ellipse\Handlers\ADR\ResponderInterface      $responder
+     * @param \Ellipse\Handlers\ADR\RequestParserInterface  $parser
      */
-    public function __construct(DomainInterface $domain, ResponderInterface $responder, callable $parser)
+    public function __construct(DomainInterface $domain, ResponderInterface $responder, RequestParserInterface $parser = null)
     {
         $this->domain = $domain;
         $this->responder = $responder;
-        $this->parser = $parser;
+        $this->parser = $parser ?? new DefaultRequestParser;
     }
 
     /**
@@ -53,20 +55,13 @@ class ActionRequestHandler implements RequestHandlerInterface
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @return \Psr\Http\Message\ResponseInterface
-     * @throws \Ellipse\Handlers\Exceptions\InputTypeException
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $input = ($this->parser)($request);
+        $input = $this->parser->input($request);
 
-        if (is_array($input)) {
+        $payload = $this->domain->payload($input);
 
-            $payload = $this->domain->payload($input);
-
-            return $this->responder->createResponse($request, $payload);
-
-        }
-
-        throw new InputTypeException($input);
+        return $this->responder->response($request, $payload);
     }
 }
