@@ -10,8 +10,6 @@ use Ellipse\Handlers\ActionRequestHandler;
 use Ellipse\Handlers\ADR\PayloadInterface;
 use Ellipse\Handlers\ADR\DomainInterface;
 use Ellipse\Handlers\ADR\ResponderInterface;
-use Ellipse\Handlers\ADR\RequestParserInterface;
-use Ellipse\Handlers\ADR\DefaultRequestParser;
 
 describe('ActionRequestHandler', function () {
 
@@ -20,72 +18,48 @@ describe('ActionRequestHandler', function () {
         $this->domain = mock(DomainInterface::class);
         $this->responder = mock(ResponderInterface::class);
 
+        $this->handler = new ActionRequestHandler($this->domain->get(), $this->responder->get(), [
+            'k1' => 'v1.default',
+            'k2' => 'v2.default',
+        ]);
+
     });
 
     it('should implement RequestHandlerInterface', function () {
 
-        $test = new ActionRequestHandler($this->domain->get(), $this->responder->get());
-
-        expect($test)->toBeAnInstanceOf(RequestHandlerInterface::class);
+        expect($this->handler)->toBeAnInstanceOf(RequestHandlerInterface::class);
 
     });
 
     describe('->handle()', function () {
 
-        beforeEach(function () {
+        it('should create an input from the request, use the domain to get a payload and the responder to get a response', function () {
 
-            $this->request = mock(ServerRequestInterface::class)->get();
-            $this->response = mock(ResponseInterface::class)->get();
+            $request = mock(ServerRequestInterface::class);
+            $response = mock(ResponseInterface::class)->get();
 
-            $this->payload = mock(PayloadInterface::class)->get();
+            $payload = mock(PayloadInterface::class)->get();
 
-        });
+            $input = [
+                'k1' => 'v1.default',
+                'k2' => 'v2.attr',
+                'k3' => 'v3.query',
+                'k4' => 'v4.body',
+                'k5' => 'v5.files',
+            ];
 
-        context('when there is no request parser', function () {
+            $request->getAttributes->returns(['k2' => 'v2.attr', 'k3' => 'v3.attr']);
+            $request->getQueryParams->returns(['k3' => 'v3.query', 'k4' => 'v4.query']);
+            $request->getParsedBody->returns(['k4' => 'v4.body', 'k5' => 'v5.body']);
+            $request->getUploadedFiles->returns(['k5' => 'v5.files']);
 
-            it('should use the input array produced by a default request parser', function () {
+            $this->domain->payload->with($input)->returns($payload);
 
-                $input = ['key' => 'value'];
-                $parser = mock(DefaultRequestParser::class);
+            $this->responder->response->with($request, $payload)->returns($response);
 
-                allow(DefaultRequestParser::class)->toBe($parser->get());
+            $test = $this->handler->handle($request->get());
 
-                $handler = new ActionRequestHandler($this->domain->get(), $this->responder->get());
-
-                $parser->input->with($this->request)->returns($input);
-
-                $this->domain->payload->with($input)->returns($this->payload);
-
-                $this->responder->response->with($this->request, $this->payload)->returns($this->response);
-
-                $test = $handler->handle($this->request);
-
-                expect($test)->toBe($this->response);
-
-            });
-
-        });
-
-        context('when there is a request parser', function () {
-
-            it('should use the input array produced by the request parser', function () {
-
-                $input = ['key' => 'value'];
-                $parser = mock(RequestParserInterface::class);
-
-                $handler = new ActionRequestHandler($this->domain->get(), $this->responder->get(), $parser->get());
-
-                $parser->input->with($this->request)->returns($input);
-
-                $this->domain->payload->with($input)->returns($this->payload);
-
-                $this->responder->response->with($this->request, $this->payload)->returns($this->response);
-
-                $test = $handler->handle($this->request);
-
-                expect($test)->toBe($this->response);
-
-            });
+            expect($test)->toBe($response);
 
         });
 

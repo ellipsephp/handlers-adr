@@ -28,37 +28,43 @@ class ActionRequestHandler implements RequestHandlerInterface
     private $responder;
 
     /**
-     * The request parser.
+     * The default input values.
      *
-     * @var \Ellipse\Handlers\ADR\RequestParserInterface
+     * @var array
      */
-    private $parser;
+    private $defaults;
 
     /**
-     * Set up an ADR request handler with the given domain, responder and an
-     * optional request parser.
+     * Set up an action request handler with the given domain, responder and an
+     * array of default input values.
      *
-     * @param \Ellipse\Handlers\ADR\DomainInterface         $domain
-     * @param \Ellipse\Handlers\ADR\ResponderInterface      $responder
-     * @param \Ellipse\Handlers\ADR\RequestParserInterface  $parser
+     * @param \Ellipse\Handlers\ADR\DomainInterface     $domain
+     * @param \Ellipse\Handlers\ADR\ResponderInterface  $responder
+     * @param array                                     $defaults
      */
-    public function __construct(DomainInterface $domain, ResponderInterface $responder, RequestParserInterface $parser = null)
+    public function __construct(DomainInterface $domain, ResponderInterface $responder, array $defaults = [])
     {
         $this->domain = $domain;
         $this->responder = $responder;
-        $this->parser = $parser ?? new DefaultRequestParser;
+        $this->defaults = $defaults;
     }
 
     /**
-     * Return the response produced by the responder with the payload produced
-     * by the domain.
+     * Create an input array and return the response produced by the responder
+     * with the payload produced by the domain.
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @return \Psr\Http\Message\ResponseInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $input = $this->parser->input($request);
+        $input = array_merge(
+            $this->defaults,
+            $request->getAttributes(),
+            $request->getQueryParams(),
+            $request->getParsedBody(),
+            $request->getUploadedFiles()
+        );
 
         $payload = $this->domain->payload($input);
 
