@@ -2,6 +2,8 @@
 
 use function Eloquent\Phony\Kahlan\mock;
 
+use Psr\Container\ContainerInterface;
+
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -10,15 +12,16 @@ use Ellipse\Handlers\ActionRequestHandler;
 use Ellipse\Handlers\ADR\PayloadInterface;
 use Ellipse\Handlers\ADR\DomainInterface;
 use Ellipse\Handlers\ADR\ResponderInterface;
+use Ellipse\Handlers\Exceptions\ContainedDomainTypeException;
+use Ellipse\Handlers\Exceptions\ContainedResponderTypeException;
 
 describe('ActionRequestHandler', function () {
 
     beforeEach(function () {
 
-        $this->domain = mock(DomainInterface::class);
-        $this->responder = mock(ResponderInterface::class);
+        $this->container = mock(ContainerInterface::class);
 
-        $this->handler = new ActionRequestHandler($this->domain->get(), $this->responder->get(), [
+        $this->handler = new ActionRequestHandler($this->container->get(), 'Domain', 'Responder', [
             'k1' => 'v1.default',
             'k2' => 'v2.default',
         ]);
@@ -33,33 +36,101 @@ describe('ActionRequestHandler', function () {
 
     describe('->handle()', function () {
 
-        it('should create an input from the request, use the domain to get a payload and the responder to get a response', function () {
+        beforeEach(function () {
 
-            $request = mock(ServerRequestInterface::class);
-            $response = mock(ResponseInterface::class)->get();
+            $this->request = mock(ServerRequestInterface::class);
 
-            $payload = mock(PayloadInterface::class)->get();
+            $this->request->getAttributes->returns(['k2' => 'v2.attr', 'k3' => 'v3.attr']);
+            $this->request->getQueryParams->returns(['k3' => 'v3.query', 'k4' => 'v4.query']);
+            $this->request->getParsedBody->returns(['k4' => 'v4.body', 'k5' => 'v5.body']);
+            $this->request->getUploadedFiles->returns(['k5' => 'v5.files']);
 
-            $input = [
-                'k1' => 'v1.default',
-                'k2' => 'v2.attr',
-                'k3' => 'v3.query',
-                'k4' => 'v4.body',
-                'k5' => 'v5.files',
-            ];
+        });
 
-            $request->getAttributes->returns(['k2' => 'v2.attr', 'k3' => 'v3.attr']);
-            $request->getQueryParams->returns(['k3' => 'v3.query', 'k4' => 'v4.query']);
-            $request->getParsedBody->returns(['k4' => 'v4.body', 'k5' => 'v5.body']);
-            $request->getUploadedFiles->returns(['k5' => 'v5.files']);
+        context('when the domain retrieved from the container is an object implementing DomainInterface', function () {
 
-            $this->domain->payload->with($input)->returns($payload);
+            beforeEach(function () {
 
-            $this->responder->response->with($request, $payload)->returns($response);
+                $this->domain = mock(DomainInterface::class);
 
-            $test = $this->handler->handle($request->get());
+                $this->container->get->with('Domain')->returns($this->domain);
 
-            expect($test)->toBe($response);
+            });
+
+            context('when the responder retrieved from the container is an object implementing ResponderInterface', function () {
+
+                beforeEach(function () {
+
+                    $this->responder = mock(ResponderInterface::class);
+
+                    $this->container->get->with('Responder')->returns($this->responder);
+
+                });
+
+                it('should return a response by following the action domain responder pattern', function () {
+
+                    $payload = mock(PayloadInterface::class)->get();
+                    $response = mock(ResponseInterface::class)->get();
+
+                    $input = [
+                        'k1' => 'v1.default',
+                        'k2' => 'v2.attr',
+                        'k3' => 'v3.query',
+                        'k4' => 'v4.body',
+                        'k5' => 'v5.files',
+                    ];
+
+                    $this->domain->payload->with($input)->returns($payload);
+
+                    $this->responder->response->with($this->request, $payload)->returns($response);
+
+                    $test = $this->handler->handle($this->request->get());
+
+                    expect($test)->toBe($response);
+
+                });
+
+            });
+
+            context('when the responder retrieved from the container is not an object implementing ResponderInterface', function () {
+
+                it('should throw a ContainedResponderTypeException', function () {
+
+                    $this->container->get->with('Responder')->returns('responder');
+
+                    $test = function () {
+
+                        $this->handler->handle($this->request->get());
+
+                    };
+
+                    $exception = new ContainedResponderTypeException('Responder', 'responder');
+
+                    expect($test)->toThrow($exception);
+
+                });
+
+            });
+
+        });
+
+        context('when the domain retrieved from the container is not an object implementing DomainInterface', function () {
+
+            it('should throw a ContainedDomainTypeException', function () {
+
+                $this->container->get->with('Domain')->returns('domain');
+
+                $test = function () {
+
+                    $this->handler->handle($this->request->get());
+
+                };
+
+                $exception = new ContainedDomainTypeException('Domain', 'domain');
+
+                expect($test)->toThrow($exception);
+
+            });
 
         });
 
