@@ -14,22 +14,22 @@ class Payload implements PayloadInterface, JsonSerializable
     private $status;
 
     /**
-     * The payload values.
+     * The payload data.
      *
      * @var array
      */
-    private $values;
+    private $data;
 
     /**
-     * Set up a payload with the given status and values.
+     * Set up a payload with the given status and data.
      *
      * @param string    $status
-     * @param array     $values
+     * @param array     $data
      */
-    public function __construct(string $status, array $values = [])
+    public function __construct(string $status, array $data = [])
     {
         $this->status = $status;
-        $this->values = $values;
+        $this->data = $data;
     }
 
     /**
@@ -43,9 +43,9 @@ class Payload implements PayloadInterface, JsonSerializable
     /**
      * @inheritdoc
      */
-    public function values(): array
+    public function data(): array
     {
-        return $this->values;
+        return $this->data;
     }
 
     /**
@@ -55,7 +55,7 @@ class Payload implements PayloadInterface, JsonSerializable
     {
         return [
             'status' => $this->status,
-            'values' => $this->values,
+            'data' => $this->data,
         ];
     }
 }

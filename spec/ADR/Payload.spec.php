@@ -35,15 +35,15 @@ describe('Payload', function () {
 
     });
 
-    describe('->values()', function () {
+    describe('->data()', function () {
 
-        context('when the payload does not have values', function () {
+        context('when the payload does not have data', function () {
 
             it('should return an empty array', function () {
 
                 $payload = new Payload('status');
 
-                $test = $payload->values();
+                $test = $payload->data();
 
                 expect($test)->toEqual([]);
 
@@ -51,13 +51,13 @@ describe('Payload', function () {
 
         });
 
-        context('when the payload does not have values', function () {
+        context('when the payload does not have data', function () {
 
-            it('should return the values', function () {
+            it('should return the data', function () {
 
                 $payload = new Payload('status', ['key' => 'value']);
 
-                $test = $payload->values();
+                $test = $payload->data();
 
                 expect($test)->toEqual(['key' => 'value']);
 
@@ -69,7 +69,7 @@ describe('Payload', function () {
 
     context('when json encoded', function () {
 
-        context('when the payload does not have values', function () {
+        context('when the payload does not have data', function () {
 
             it('should return a json string with the status and an empty array', function () {
 
@@ -79,16 +79,16 @@ describe('Payload', function () {
 
                 expect($test)->toEqual(json_encode([
                     'status' => 'status',
-                    'values' => [],
+                    'data' => [],
                 ]));
 
             });
 
         });
 
-        context('when the payload does not have values', function () {
+        context('when the payload does not have data', function () {
 
-            it('should return the values', function () {
+            it('should return the data', function () {
 
                 $payload = new Payload('status', ['key' => 'value']);
 
@@ -96,7 +96,7 @@ describe('Payload', function () {
 
                 expect($test)->toEqual(json_encode([
                     'status' => 'status',
-                    'values' => ['key' => 'value'],
+                    'data' => ['key' => 'value'],
                 ]));
 
             });

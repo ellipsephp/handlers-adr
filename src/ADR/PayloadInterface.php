@@ -12,9 +12,9 @@ interface PayloadInterface
     public function status(): string;
 
     /**
-     * Return the payload values.
+     * Return the payload data.
      *
      * @return array
      */
-    public function values(): array;
+    public function data(): array;
 }
