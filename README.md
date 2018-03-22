@@ -147,7 +147,7 @@ $response = $handler->handle($request);
 
 ## Example using auto wiring
 
-It can be cumbersome to register every *Domain* and *Responder* classes in the container. Here is how to auto wire *Domain* and *Responder* classes using the `Ellipse\Container\ReflectionContainer` class from the [ellipse/container-reflection](https://github.com/ellipsephp/container-reflection) package.
+It can be cumbersome to register every *Domain* and *Responder* classes in the container. Here is how to auto wire *Domain* and *Responder* instances using the `Ellipse\Container\ReflectionContainer` class from the [ellipse/container-reflection](https://github.com/ellipsephp/container-reflection) package.
 
 ```php
 <?php
@@ -156,10 +156,10 @@ namespace App;
 
 use SomePsr11Container;
 
-use Ellipse\Container\ReflectionContainer;
 use Ellipse\ADR\DomainInterface;
 use Ellipse\Handlers\ResponderInterface;
 use Ellipse\Handlers\ActionRequestHandler;
+use Ellipse\Container\ReflectionContainer;
 
 use App\Domain\SomeDomain;
 use App\Responder\SomeResponder;
@@ -168,13 +168,13 @@ use App\Responder\SomeResponder;
 $container = new SomePsr11Container;
 
 // Decorate the container with a reflection container.
-// Specify the domain and responder classes can be auto wired.
+// Specify the domain and responder implementations can be auto wired.
 $reflection = new ReflectionContainer($container, [
     DomainInterface::class,
     ResponderInterface::class,
 ]);
 
-// Create an action request handler using the reflection container.
+// Create an action request handler using the reflection container, domain and responder class names.
 $handler = new ActionRequestHandler($reflection, SomeDomain::class, SomeResponder::class);
 
 // Instances of SomeDomain and SomeResponder are built using auto wiring.
