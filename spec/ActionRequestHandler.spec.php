@@ -8,10 +8,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+use Ellipse\ADR\PayloadInterface;
+use Ellipse\ADR\DomainInterface;
+use Ellipse\Handlers\ResponderInterface;
 use Ellipse\Handlers\ActionRequestHandler;
-use Ellipse\Handlers\ADR\PayloadInterface;
-use Ellipse\Handlers\ADR\DomainInterface;
-use Ellipse\Handlers\ADR\ResponderInterface;
 use Ellipse\Handlers\Exceptions\ContainedDomainTypeException;
 use Ellipse\Handlers\Exceptions\ContainedResponderTypeException;
 

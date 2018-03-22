@@ -4,7 +4,7 @@ namespace Ellipse\Handlers\Exceptions;
 
 use TypeError;
 
-use Ellipse\Handlers\ADR\DomainInterface;
+use Ellipse\ADR\DomainInterface;
 
 use Ellipse\Exceptions\ContainerEntryTypeErrorMessage;
 

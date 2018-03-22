@@ -8,8 +8,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-use Ellipse\Handlers\ADR\DomainInterface;
-use Ellipse\Handlers\ADR\ResponderInterface;
+use Ellipse\ADR\DomainInterface;
+use Ellipse\Handlers\ResponderInterface;
 use Ellipse\Handlers\Exceptions\ContainedDomainTypeException;
 use Ellipse\Handlers\Exceptions\ContainedResponderTypeException;
 
@@ -95,7 +95,7 @@ class ActionRequestHandler implements RequestHandlerInterface
     /**
      * Return the container entry associated with the domain container id.
      *
-     * @return \Ellipse\Handlers\ADR\DomainInterface
+     * @return \Ellipse\ADR\DomainInterface
      * @throws \Ellipse\Handlers\Exceptions\ContainedDomainTypeException
      */
     private function domain(): DomainInterface
@@ -114,7 +114,7 @@ class ActionRequestHandler implements RequestHandlerInterface
     /**
      * Return the container entry associated with the responder container id.
      *
-     * @return \Ellipse\Handlers\ADR\ResponderInterface
+     * @return \Ellipse\Handlers\ResponderInterface
      * @throws \Ellipse\Handlers\Exceptions\ContainedResponderTypeException
      */
     private function responder(): ResponderInterface

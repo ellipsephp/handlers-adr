@@ -19,21 +19,20 @@ The `Ellipse\Handlers\ActionRequestHandler` class implements `Psr\Http\Server\Re
 
 The input array is obtained by merging the default input array, request attributes, request query parameters, request parsed body parameters and uploaded files. They are merged in this order, meaning default parameters would be overridden by request attributes having the same keys, which would be overridden by query parameters, etc...
 
-The *Domain* instance is retrieved from the container and must implement `Ellipse\Handlers\ADR\DomainInterface`. It defines a `->payload()` method taking the input array as parameter and returning an implementation of `Ellipse\Handlers\ADR\PayloadInterface`. An `Ellipse\Handlers\Exceptions\ContainedDomainTypeException` is thrown when the value retrieved from the container is not an object implementing `DomainInterface`.
+The *Domain* instance is retrieved from the container and must implement `Ellipse\ADR\DomainInterface`. It defines a `->payload()` method taking the input array as parameter and returning an implementation of `Ellipse\ADR\PayloadInterface`. An `Ellipse\Handlers\Exceptions\ContainedDomainTypeException` is thrown when the value retrieved from the container is not an object implementing `DomainInterface`.
 
-`PayloadInterface` defines two methods: `->status()` returning the payload status as a string and `->data()` returning the payload data as an array. A default implementation is provided by the `Ellipse\Handlers\ADR\Payload` class taking status and data as constructor parameters.
+`PayloadInterface` defines two methods: `->status()` returning the payload status as a string and `->data()` returning the payload data as an array. A default implementation is provided by the `Ellipse\ADR\Payload` class taking status and data as constructor parameters.
 
-The *Responder* instance is retrieved from the container and must implement `Ellipse\Handlers\ADR\ResponderInterface`. It defines a `->response()` method taking the incoming request and the payload produced by the *Domain* as parameter and returning a Psr-7 response. An `Ellipse\Handlers\Exceptions\ContainedResponderTypeException` is thrown when the value retrieved from the container is not an object implementing `ResponderInterface`.
+The *Responder* instance is retrieved from the container and must implement `Ellipse\Handlers\ResponderInterface`. It defines a `->response()` method taking the incoming request and the payload produced by the *Domain* as parameter and returning a Psr-7 response. An `Ellipse\Handlers\Exceptions\ContainedResponderTypeException` is thrown when the value retrieved from the container is not an object implementing `ResponderInterface`.
 
 ```php
 <?php
 
 namespace App\Domain;
 
-use Ellipse\Handlers\ADR\DomainInterface;
-
-use Ellipse\Handlers\ADR\Payload;
-use Ellipse\Handlers\ADR\PayloadInterface;
+use Ellipse\ADR\Payload;
+use Ellipse\ADR\PayloadInterface;
+use Ellipse\ADR\DomainInterface;
 
 use App\SomeService;
 
@@ -68,13 +67,13 @@ namespace App\Responder;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
-use Ellipse\Handlers\ADR\PayloadInterface;
-use Ellipse\Handlers\ADR\ResponderInterface;
+use Ellipse\ADR\PayloadInterface;
+use Ellipse\Handlers\ResponderInterface;
 
 use App\ResponseFactory;
 
 // Responder classes must implement ResponderInterface
-class SomeResponder implements DomainInterface
+class SomeResponder implements ResponderInterface
 {
     private $factory;
 
@@ -94,9 +93,7 @@ class SomeResponder implements DomainInterface
         // - The ->values() method returning the payload data
         if ($payload->status() === 'FOUND') {
 
-            $data = $payload->data();
-
-            return $this->factory->createFoundResponse('some_template', $data);
+            return $this->factory->createFoundResponse('template', $payload->data());
 
         }
 
@@ -160,9 +157,9 @@ namespace App;
 use SomePsr11Container;
 
 use Ellipse\Container\ReflectionContainer;
+use Ellipse\ADR\DomainInterface;
+use Ellipse\Handlers\ResponderInterface;
 use Ellipse\Handlers\ActionRequestHandler;
-use Ellipse\Handlers\ADR\DomainInterface;
-use Ellipse\Handlers\ADR\ResponderInterface;
 
 use App\Domain\SomeDomain;
 use App\Responder\SomeResponder;

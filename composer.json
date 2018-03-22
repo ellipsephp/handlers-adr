@@ -6,7 +6,10 @@
         "Psr-15",
         "Psr-11",
         "request-handler",
-        "adr"
+        "adr",
+        "action",
+        "domain",
+        "responder"
     ],
     "license": "MIT",
     "homepage": "https://github.com/ellipsephp/handlers-adr",
@@ -22,10 +25,11 @@
     ],
     "require": {
         "php": ">=7.0",
+        "psr/container": "^1.0",
         "psr/http-message": "^1.0",
         "psr/http-server-handler": "^1.0",
         "psr/http-server-middleware": "^1.0",
-        "psr/container": "^1.0",
+        "ellipse/adr": "^1.0",
         "ellipse/type-errors": "^1.0"
     },
     "require-dev": {
