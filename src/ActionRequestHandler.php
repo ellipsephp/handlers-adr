@@ -2,62 +2,50 @@
 
 namespace Ellipse\Handlers;
 
-use Psr\Container\ContainerInterface;
-
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 use Ellipse\ADR\DomainInterface;
 use Ellipse\Handlers\ResponderInterface;
-use Ellipse\Handlers\Exceptions\ContainedDomainTypeException;
-use Ellipse\Handlers\Exceptions\ContainedResponderTypeException;
+use Ellipse\Handlers\Exceptions\InputTypeException;
 
 class ActionRequestHandler implements RequestHandlerInterface
 {
     /**
-     * The container.
+     * The domain.
      *
-     * @var \Psr\Container\ContainerInterface
-     */
-    private $container;
-
-    /**
-     * The container entry id for the domain.
-     *
-     * @var string
+     * @var \Ellipse\ADR\DomainInterface
      */
     private $domain;
 
     /**
-     * The container entry id for the responder.
+     * The responder.
      *
-     * @var string
+     * @var \Ellipse\Handlers\ResponderInterface
      */
     private $responder;
 
     /**
-     * The default input array.
+     * The request parser.
      *
-     * @var array
+     * @var callable|null
      */
-    private $defaults;
+    private $parser;
 
     /**
-     * Set up an action request handler with the given container, container ids
-     * for domain and responder, and optional default input array.
+     * Set up an action request handler with the given domain, responder and an
+     * optional request parser.
      *
-     * @param \Psr\Container\ContainerInterface $container
-     * @param string                            $domain
-     * @param string                            $responder
-     * @param array                             $defaults
+     * @param \Ellipse\ADR\DomainInterface          $domain
+     * @param \Ellipse\Handlers\ResponderInterface  $responder
+     * @param callable|null                         $parser
      */
-    public function __construct(ContainerInterface $container, string $domain, string $responder, array $defaults = [])
+    public function __construct(DomainInterface $domain, ResponderInterface $responder, callable $parser = null)
     {
-        $this->container = $container;
         $this->domain = $domain;
         $this->responder = $responder;
-        $this->defaults = $defaults;
+        $this->parser = $parser;
     }
 
     /**
@@ -70,63 +58,39 @@ class ActionRequestHandler implements RequestHandlerInterface
     {
         $input = $this->input($request);
 
-        $payload = $this->domain()->payload($input);
+        $payload = $this->domain->payload($input);
 
-        return $this->responder()->response($request, $payload);
+        return $this->responder->response($request, $payload);
     }
 
     /**
-     * Return an input array from the given request.
+     * Return an input array from the given request using the request parser.
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @return array
+     * @throws \Ellipse\Handlers\Exceptions\InputTypeException
      */
     private function input(ServerRequestInterface $request): array
     {
+        if (! is_null($this->parser)) {
+
+            $input = ($this->parser)($request);
+
+            if (is_array($input)) {
+
+                return $input;
+
+            }
+
+            throw new InputTypeException($input);
+
+        }
+
         return array_merge(
-            $this->defaults,
             $request->getAttributes(),
             $request->getQueryParams(),
             $request->getParsedBody(),
             $request->getUploadedFiles()
         );
-    }
-
-    /**
-     * Return the container entry associated with the domain container id.
-     *
-     * @return \Ellipse\ADR\DomainInterface
-     * @throws \Ellipse\Handlers\Exceptions\ContainedDomainTypeException
-     */
-    private function domain(): DomainInterface
-    {
-        $domain = $this->container->get($this->domain);
-
-        if ($domain instanceof DomainInterface) {
-
-            return $domain;
-
-        }
-
-        throw new ContainedDomainTypeException($this->domain, $domain);
-    }
-
-    /**
-     * Return the container entry associated with the responder container id.
-     *
-     * @return \Ellipse\Handlers\ResponderInterface
-     * @throws \Ellipse\Handlers\Exceptions\ContainedResponderTypeException
-     */
-    private function responder(): ResponderInterface
-    {
-        $responder = $this->container->get($this->responder);
-
-        if ($responder instanceof ResponderInterface) {
-
-            return $responder;
-
-        }
-
-        throw new ContainedResponderTypeException($this->responder, $responder);
     }
 }
