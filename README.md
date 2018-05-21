@@ -1,6 +1,6 @@
 # Request handler ADR
 
-This package provides a [Psr-15](https://www.php-fig.org/psr/psr-15/) request handler implementing the [ADR](https://github.com/pmjones/adr) pattern using a [Psr-11](https://www.php-fig.org/psr/psr-11/) container.
+This package provides a [Psr-15](https://www.php-fig.org/psr/psr-15/) request handler implementing the [Action-Domain-Responder](https://github.com/pmjones/adr) pattern.
 
 **Require** php >= 7.0
 
@@ -9,21 +9,26 @@ This package provides a [Psr-15](https://www.php-fig.org/psr/psr-15/) request ha
 **Run tests** `./vendor/bin/kahlan`
 
 - [Request handler using ADR pattern](#request-handler-using-adr-pattern)
-- [Example using auto wiring](#example-using-auto-wiring)
+- [Usage with a Psr-11 container](#usage-with-a-psr-11-container)
 
 ## Request handler using ADR pattern
 
-Using the [Action-Domain-Responder](https://github.com/pmjones/adr) pattern allows to properly separate domain logic and presentation logic when handling an incoming request. Here is how this package implements it:
+The [Action-Domain-Responder](https://github.com/pmjones/adr) (ADR) pattern is used to separate domain and presentation logic of an application. It can be summed up as having *Action* objects gluing together pairs of *Domain* and *Responder* objects in order to produce a response from an incoming request. An *Action* can therefore be considered as a Psr-15 request handler and the goal of this package is to provide an ADR implementation usable with any Psr-15 dispatching system.
 
-The `Ellipse\Handlers\ActionRequestHandler` class implements `Psr\Http\Server\RequestHandlerInterface` and is used as a generic *Action*. It takes a Psr-11 container as constructor parameter as well as two container entry ids for *Domain* and *Responder* instances. An optional default input array can also be specified as last parameter. Using a container allows to instanciate only the *Domain* and *Responder* classes used by the *Action* actually handling the request, when multiple request handlers are matched by a [router](https://github.com/ellipsephp/router-fastroute) for example.
+The `Ellipse\Handlers\ActionRequestHandler` represents a generic *Action* implementing `Psr\Http\Server\RequestHandlerInterface`. Its first constructor parameter is a *Domain* object implementing `Ellipse\ADR\DomainInterface` and the second one is a *Responder* object implementing `Ellipse\Handler\ResponderInterface`. Here is what's going on when the `->handle()` method of an `ActionRequestHandler` instance is called with a Psr-7 request:
 
-The input array is obtained by merging the default input array, request attributes, request query parameters, request parsed body parameters and uploaded files. They are merged in this order, meaning default parameters would be overridden by request attributes having the same keys, which would be overridden by query parameters, etc...
+- An input array is extracted from the Psr-7 request
+- A payload is produced by calling the `->payload()` method of the *Domain* with the input array
+- A Psr-7 response is produced by calling the `->response()` method of the *Responder* with the Psr-7 request and the payload
+- The Psr-7 response is returned
 
-The *Domain* instance is retrieved from the container and must implement `Ellipse\ADR\DomainInterface`. It defines a `->payload()` method taking the input array as parameter and returning an implementation of `Ellipse\ADR\PayloadInterface`. An `Ellipse\Handlers\Exceptions\ContainedDomainTypeException` is thrown when the value retrieved from the container is not an object implementing `DomainInterface`.
+By default the input array is obtained by merging the request attributes, query parameters, parsed body parameters and uploaded files. They are merged in this order, meaning request attributes are overridden by query parameters having the same keys, which in turn are overridden by parsed body parameters, and finally by uploaded files. An *Action* specific request parsing logic can be specified by passing a callable as `ActionRequestHandler` third constructor parameter. This request parser callable is executed with the request as parameter and must return an array. An `Ellipse\Handlers\Exceptions\InputTypeException` is thrown when anything else than an array is returned.
 
-`PayloadInterface` defines two methods: `->status()` returning the payload status as a string and `->data()` returning the payload data as an array. A default implementation is provided by the `Ellipse\ADR\Payload` class taking status and data as constructor parameters.
+`DomainInterface` defines a `->payload()` method taking an input array as parameter and returning an implementation of `Ellipse\ADR\PayloadInterface`.
 
-The *Responder* instance is retrieved from the container and must implement `Ellipse\Handlers\ResponderInterface`. It defines a `->response()` method taking the incoming request and the payload produced by the *Domain* as parameter and returning a Psr-7 response. An `Ellipse\Handlers\Exceptions\ContainedResponderTypeException` is thrown when the value retrieved from the container is not an object implementing `ResponderInterface`.
+`PayloadInterface` defines two methods: `->status()` returning the payload status as a string and `->data()` returning the payload data as an array. The `Ellipse\ADR\Payload` class can be used as a default implementation of `PayloadInterface`. It takes the status string and the data array as constructor parameters.
+
+Finally, `ResponseInterface` defines a `->response()` method taking a request and an implementation of `PayloadInterface` as parameter and returning a response.
 
 ```php
 <?php
@@ -36,7 +41,6 @@ use Ellipse\ADR\DomainInterface;
 
 use App\SomeService;
 
-// Domain classes must implement DomainInterface
 class SomeDomain implements DomainInterface
 {
     private $service;
@@ -46,15 +50,12 @@ class SomeDomain implements DomainInterface
         $this->service = $service;
     }
 
-    // The ->payload() method takes an input array as parameter and returns an implementation of PayloadInterface.
     public function payload(array $input): PayloadInterface
     {
-        // perform domain logic using $this->service ...
+        // perform domain logic...
 
-        // A default payload is available. It takes a status and an associative array.
-        return new Payload('FOUND', [
-            'entity' => $data,
-        ]);
+        // This payload will be passed to the responder ->response() method.
+        return new Payload('FOUND', ['k1' => $v1, 'k2' => $v2]);
     }
 }
 ```
@@ -72,7 +73,6 @@ use Ellipse\Handlers\ResponderInterface;
 
 use App\ResponseFactory;
 
-// Responder classes must implement ResponderInterface
 class SomeResponder implements ResponderInterface
 {
     private $factory;
@@ -82,15 +82,11 @@ class SomeResponder implements ResponderInterface
         $this->factory = $factory;
     }
 
-    // The ->response() method takes a ServerRequestInterface and a PayloadInterface as parameter and return a ResponseInterface.
     public function response(ServerRequestInterface $request, PayloadInterface $payload): ResponseInterface
     {
-        // Request headers can be used to perform content negotiation.
-        // ...
+        // Different Psr-7 responses can be produced according to the given Psr-7 request and
+        // the given payload.
 
-        // PayloadInterface defines two methods:
-        // - The ->status() method returning the payload status
-        // - The ->values() method returning the payload data
         if ($payload->status() === 'FOUND') {
 
             return $this->factory->createFoundResponse('template', $payload->data());
@@ -107,47 +103,43 @@ class SomeResponder implements ResponderInterface
 
 namespace App;
 
-use SomePsr11Container;
-
-use Ellipse\Handlers\ActionRequestHandler;
-
 use App\Domain\SomeDomain;
 use App\Responder\SomeResponder;
 
-// Get some Psr-11 container.
-$container = new SomePsr11Container;
-
-// Register the domain in the container.
-$container->set(SomeDomain::class, function ($container) {
-
-    return new SomeDomain(new SomeService);
-
-});
-
-// Register the responder in the container.
-$container->set(SomeResponder::class, function ($container) {
-
-    return new SomeResponder(new ResponseFactory);
-
-});
+use Ellipse\Handlers\ActionRequestHandler;
 
 // Create an action request handler using SomeDomain and SomeResponder.
-$handler = new ActionRequestHandler($container, SomeDomain::class, SomeResponder::class);
+$domain = new SomeSomain(new SomeService);
+$responder = new SomeResponder(new ResponseFactory);
 
-// An optional input array can be specified.
-// Those values are overridden by the request data having the same keys.
-$handler = new ActionRequestHandler($container, SomeDomain::class, SomeResponder::class, [
-    'default1' => 'value1',
-    'default2' => 'value2',
-]);
+$handler = new ActionRequestHandler($domain, $responder);
 
-// action request handler instances work like any Psr-15 request handler.
+// A specific request parsing callable can be specified.
+$handler = new ActionRequestHandler($domain, $responder, function ($request) {
+
+    $attributes = $request->getAttributes();
+
+    return [
+        'key' => explode(' ', $attributes['key']),
+    ];
+
+});
+
+// Action request handler instances work like any Psr-15 request handler.
 $response = $handler->handle($request);
 ```
 
-## Example using auto wiring
+## Usage with a Psr-11 container
 
-It can be cumbersome to register every *Domain* and *Responder* classes in the container. Here is how to auto wire *Domain* and *Responder* instances using the `Ellipse\Container\ReflectionContainer` class from the [ellipse/container-reflection](https://github.com/ellipsephp/container-reflection) package.
+In real world applications *Domain* and *Responder* instances are usually retrieved from a container.
+
+This packages provides implementations of `DomainInterface` and `ResponderInterface` proxying a [Psr-11](https://www.php-fig.org/psr/psr-11/) container entry.
+
+`Ellipse\Handlers\ContainerDomain` class takes a container and the container id of a *Domain* object as constructor parameters. When its `->payload()` method is called, the *Domain* is retrieved from the container and the payload produced by its `->payload()` method is returned. An `Ellipse\Handlers\Exceptions\ContainedDomainTypeException` is thrown when the container entry is not an implementation of `DomainInterface`.
+
+In the same way `Ellipse\Handlers\ContainerResponder` class takes a container and the container id of a *Responder* object as constructor parameters. The container entry `->response()` method is proxied and an `Ellipse\Handlers\Exceptions\ContainedResponderTypeException` is thrown when it is not an implementation of `ResponderInterface`.
+
+Finally, request parsing callables can also be retrieved from the container using the `Ellipse\Handlers\ContainerRequestParser` class with a container and the container id of a callable as constructor parameters. An `Ellipse\Handlers\Exceptions\ContainedRequestParserTypeException` is thrown when the container entry is not a callable.
 
 ```php
 <?php
@@ -156,13 +148,75 @@ namespace App;
 
 use SomePsr11Container;
 
+use App\Domain\SomeDomain;
+use App\Responder\SomeResponder;
+
+use Ellipse\Handlers\ContainerDomain;
+use Ellipse\Handlers\ContainerResponder;
+use Ellipse\Handlers\ContainerRequestParser;
+use Ellipse\Handlers\ActionRequestHandler;
+
+// Register SomeDomain, SomeResponder and a request parser into a Psr-11 container.
+$container = new SomePsr11Container;
+
+$container->set(SomeDomain::class, function ($container) {
+
+    $service = $container->get(SomeService::class);
+
+    return new SomeDomain($service);
+
+});
+
+$container->set(SomeResponder::class, function ($container) {
+
+    $factory = $container->get(ResponseFactory::class);
+
+    return new SomeResponder($factory);
+
+});
+
+$container->set('adr.parser', function () {
+
+    return function ($request) {
+
+        $attributes = $request->getAttributes();
+
+        return [
+            'key' => explode(' ', $attributes['key']),
+        ];
+
+    };
+
+});
+
+// Create an action using domain, responder and request parser proxying container entries.
+$domain = new ContainerDomain($container, SomeDomain::class);
+$responder = new ContainerResponder($container, SomeResponder::class);
+$parser = new ContainerRequestParser($container, 'adr.parser');
+
+$handler = new ActionRequestHandler($domain, $responder, $parser);
+
+// Actual domain, responder and request parser are retrieved from the container when the request is handled
+// by the action.
+$response = $handler->handle($request);
+```
+
+Of course *Domain* and *Responder* classes can be auto wired using `Ellipse\Container\ReflectionContainer` class from the [ellipse/container-reflection](https://github.com/ellipsephp/container-reflection) package.
+
+```php
+<?php
+
+namespace App;
+
+use SomePsr11Container;
+
+use App\Domain\SomeDomain;
+use App\Responder\SomeResponder;
+
 use Ellipse\ADR\DomainInterface;
 use Ellipse\Handlers\ResponderInterface;
 use Ellipse\Handlers\ActionRequestHandler;
 use Ellipse\Container\ReflectionContainer;
-
-use App\Domain\SomeDomain;
-use App\Responder\SomeResponder;
 
 // Get some Psr-11 container.
 $container = new SomePsr11Container;
@@ -174,8 +228,11 @@ $reflection = new ReflectionContainer($container, [
     ResponderInterface::class,
 ]);
 
-// Create an action request handler using the reflection container, domain and responder class names.
-$handler = new ActionRequestHandler($reflection, SomeDomain::class, SomeResponder::class);
+// Create an action using domain and responder proxying container entries.
+$domain = new ContainerDomain($reflection, SomeDomain::class);
+$responder = new ContainerResponder($reflection, SomeResponder::class);
+
+$handler = new ActionRequestHandler($domain, $responder);
 
 // Instances of SomeDomain and SomeResponder are built using auto wiring.
 $response = $handler->handle($request);
